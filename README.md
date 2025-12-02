@@ -54,6 +54,7 @@ LLM_MODEL: "qwen3-30b-a3b-thinking-2507"
 - `DASHSCOPE_API_KEY`：用于访问阿里云百炼（DashScope）或其他 OpenAI 兼容服务的 API Key。
 - `LLM_BASE_URL`：OpenAI 兼容接口的基地址，默认为阿里云百炼的兼容地址，若切换到官方 OpenAI 或其他厂商，请按需修改。
 - `LLM_MODEL`：用于生成评论的模型名称，如 `qwen3-30b-a3b-thinking-2507`，可根据你的实际服务调整。
+
 API KEY需要自己申请一下，建议使用阿里云百炼，这样模型和URL都可以直接用这里默认的。（截止2025年12月，这个模型还是有免费额度的，不用考虑付费的事）
 
 LLM 生成评论时会自动：
