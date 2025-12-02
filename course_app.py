@@ -1,20 +1,10 @@
-from logging_utils import log_error, log_info
-from login_workflow import run_login_flow
-from course_progress import run_course_session
+"""
+保持向后兼容的入口脚本。
 
+实际业务逻辑已迁移到 src.app.course_app.main。
+"""
 
-def main():
-    run_login_flow()
-
-    while True:
-        try:
-            run_course_session()
-        except Exception as exc:
-            log_error(f"刷课过程中出现异常：{exc}")
-        choice = input("是否继续刷下一门课程？(y/n)：").strip().lower()
-        if choice not in ('y', 'yes', '1'):
-            log_info("已结束刷课，再见！")
-            break
+from src.app.course_app import main
 
 
 if __name__ == '__main__':
