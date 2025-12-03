@@ -1,4 +1,4 @@
 default_comment: "None"
 DASHSCOPE_API_KEY: "YOUR_API_KEY_HERE"
 LLM_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-LLM_MODEL: "qwen3-30b-a3b-thinking-2507"
+LLM_MODEL: "qwen3-max"

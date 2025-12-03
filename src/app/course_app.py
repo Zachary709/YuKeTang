@@ -2,6 +2,7 @@ from src.utils.logging_utils import log_error, log_info
 from src.auth.cookies_manager import are_cookies_valid, load_cookies
 from src.auth.login_workflow import run_websocket_login
 from src.core.course_progress import run_course_session, run_discussion_comment_session
+from src.core.exercise_solver import run_exercise_solver_session
 import asyncio
 
 
@@ -21,6 +22,7 @@ def main():
         print("请选择功能：")
         print("1. 自动刷视频")
         print("2. 自动刷讨论题评论")
+        print("3. 自动刷测试题")
         print("0. 退出")
         choice = input("请输入功能编号：").strip()
 
@@ -34,6 +36,11 @@ def main():
                 run_discussion_comment_session()
             except Exception as exc:
                 log_error(f"刷讨论题评论过程中出现异常：{exc}")
+        elif choice == "3":
+            try:
+                run_exercise_solver_session()
+            except Exception as exc:
+                log_error(f"刷测试题过程中出现异常：{exc}")
         elif choice == "0":
             log_info("已退出程序，再见！")
             break

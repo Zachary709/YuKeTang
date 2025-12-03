@@ -1,6 +1,7 @@
 cookies.json
-res1.txt
-res2.txt
-res3.txt
+res*.txt
+*.png
+
 login_qr.png
 __pycache__/
+font_cache/

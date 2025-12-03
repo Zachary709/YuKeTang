@@ -23,19 +23,40 @@
   - 若 LLM 生成失败（通常是题目内容较敏感），会在日志中输出对应讨论区网址，便于手动前往评论。
 - 异常、进度、完成状态均通过统一日志输出，方便观察。
 
+- **自动刷测试题**：
+  - 自动检测课程中的测试（leaf_type=6），支持单选、多选、判断和填空题。
+  - 仅处理尚未开始/未得分的测试（通过 `score_detail` 接口判断 `user_score == 0`），避免重复答题。
+  - 对每道题使用 LLM（同样支持 OpenAI 兼容接口，如阿里云百炼）生成参考答案；**填空题准确率很低，不会自动提交**，脚本仅输出“仅供参考”的答案以便手动填入。
+  - 对于有字体混淆的题目，会尝试下载并解析字体映射（缓存到 `font_cache/`），并对 HTML 中被加密的 span 进行解码；字体解析结果会被缓存以加速后续运行。
+  - 答题时会在终端交互：选择要刷的测试（支持单个或全部），每次刷完会询问是否继续；所有生成的答案会做汇总展示，方便复制粘贴填写或保存。
+
 ## 环境要求
 - Python 3.8+
-- 依赖库：`requests`、`websockets`、`openai`
+- 依赖库（可用 `pip install <pkg>` 安装）：
+  - `requests`：HTTP 客户端
+  - `websockets`：扫码登录时的 WebSocket 支持
+  - `openai` 或 任意 OpenAI 兼容客户端（用于调用 LLM），也可用阿里云 DashScope 的兼容接口通过 `requests` 调用
+  - `Pillow`（PIL）：用于字体渲染（解析字体时生成图片供 OCR 识别）
+  - `fonttools`：解析 TTF/WOFF 字体文件以提取 cmap
+  - `ddddocr`：用于 OCR（识别字体映射），解析字体混淆
+  - 其他：如需要运行 LLM 的官方 SDK（取决于你的 LLM 提供商）或额外依赖，请按实际情况安装
+
+建议一次性安装（Windows PowerShell）：
+```powershell
+pip install requests websockets openai Pillow fonttools ddddocr
+```
 
 ## 使用步骤
 1. 运行脚本：`python course_app.py`
 2. 等待终端弹出二维码提示，扫码并绑定对应的雨课堂账号。
 3. 看到功能菜单：
-   - `1. 自动刷视频`
-   - `2. 自动刷讨论题评论`
+  - `1. 自动刷视频`
+  - `2. 自动刷讨论题评论`
+  - `3. 自动刷测试题`
 4. 选择功能后，终端会列出当前可用课程，输入序号即可开始：
    - 刷视频模式：每个视频都会实时显示进度、覆盖率；达到 100% 覆盖率后自动跳过。
-   - 刷讨论题评论模式：只会处理当前课程中尚未得分的讨论题（`user_score == 0`）。
+  - 刷讨论题评论模式：只会处理当前课程中尚未得分的讨论题。
+  - 刷测试题模式：进入后会显示可选的测试列表，支持按测试逐个或全部处理；脚本会尽量只处理尚未得分的测试并在每次处理后询问是否继续。
 5. 完成后可选择是否继续其他操作或直接退出程序。
 
 ## 配置说明（`config.yml`）
@@ -43,9 +64,9 @@
 
 ```yaml
 default_comment: "None"
-DASHSCOPE_API_KEY: "xxxxxx"
+DASHSCOPE_API_KEY: "YOUR_API_KEY_HERE"
 LLM_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-LLM_MODEL: "qwen3-30b-a3b-thinking-2507"
+LLM_MODEL: "qwen3-max"
 ```
 
 - `default_comment`：
@@ -53,7 +74,7 @@ LLM_MODEL: "qwen3-30b-a3b-thinking-2507"
   - 如果设置为 `"None"`（不区分大小写），则对每个讨论题调用 LLM 自动生成评论内容。
 - `DASHSCOPE_API_KEY`：用于访问阿里云百炼（DashScope）或其他 OpenAI 兼容服务的 API Key。
 - `LLM_BASE_URL`：OpenAI 兼容接口的基地址，默认为阿里云百炼的兼容地址，若切换到官方 OpenAI 或其他厂商，请按需修改。
-- `LLM_MODEL`：用于生成评论的模型名称，如 `qwen3-30b-a3b-thinking-2507`，可根据你的实际服务调整。
+- `LLM_MODEL`：用于生成评论的模型名称，如 `qwen3-max`，可根据你的实际服务调整。
 
 API KEY需要自己申请一下，建议使用阿里云百炼，这样模型和URL都可以直接用这里默认的。（截止2025年12月，这个模型还是有免费额度的，不用考虑付费的事）
 
