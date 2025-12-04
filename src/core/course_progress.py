@@ -3,6 +3,8 @@ from pdb import run
 import random
 import time
 
+from typing import Any, Dict, List, Optional, Tuple
+
 from src.network.http_client import SEPARATOR, SESSION_REFERER, SESSION_USER_AGENT, session
 from src.utils.logging_utils import log_error, log_info, log_success, log_warning
 from src.utils.config_utils import get_default_comment
@@ -17,7 +19,7 @@ def random_sleep_interval():
     time.sleep(base)
 
 
-def _select_course() -> tuple[str, int, dict]:
+def _select_course() -> Tuple[str, int, Dict]:
     """
     复用课程选择逻辑，返回 (classroom_id, university_id, course_info)。
     """
@@ -389,7 +391,7 @@ def run_course_session():
     log_success("该课程已完成刷课！")
 
 
-def _get_csrf_token() -> str | None:
+def _get_csrf_token() -> Optional[str]:
     """
     从当前 session.cookies 中尝试提取 csrf token。
     不同学校可能字段名略有差异，这里做一个尽量兼容的尝试。
@@ -402,7 +404,7 @@ def _get_csrf_token() -> str | None:
     return None
 
 
-def _get_course_chapter_videos(classroom_id: str, university_id: int) -> list[list[dict]]:
+def _get_course_chapter_videos(classroom_id: str, university_id: int) -> List[List[Dict]]:
     """
     通过章节接口补充获取每一章下的视频 leaf。
 
@@ -436,10 +438,10 @@ def _get_course_chapter_videos(classroom_id: str, university_id: int) -> list[li
         return []
 
     chapters = data.get("data", {}).get("course_chapter", [])
-    result: list[list[dict]] = []
+    result: List[List[Dict]] = []
 
     for chapter in chapters:
-        chapter_videos: list[dict] = []
+        chapter_videos: List[Dict] = []
         for sec in chapter.get("section_leaf_list", []):
             leaf_list = sec.get("leaf_list")
             if isinstance(leaf_list, list):
@@ -455,7 +457,7 @@ def _get_course_chapter_videos(classroom_id: str, university_id: int) -> list[li
     return result
 
 
-def _extract_sku_id_from_logs(classroom_id: str) -> int | None:
+def _extract_sku_id_from_logs(classroom_id: str) -> Optional[int]:
     """
     从学习日志接口中提取 sku_id。
     """
@@ -516,7 +518,7 @@ def _iter_discussion_leaf_ids(score_detail: dict):
                 yield int(item['id'])
 
 
-def _get_topic_and_user(classroom_id: str, sku_id: int, leaf_id: int, university_id: int) -> tuple[int, int] | None:
+def _get_topic_and_user(classroom_id: str, sku_id: int, leaf_id: int, university_id: int) -> Optional[Tuple[int, int]]:
     """
     根据 classroom_id + sku_id + leaf_id 获取 (topic_id, to_user)。
     """
@@ -592,7 +594,7 @@ def _post_comment(classroom_id: str, university_id: int, topic_id: int, to_user:
     return False
 
 
-def _get_discussion_leaf_info(classroom_id: str, leaf_id: int, university_id: int) -> dict | None:
+def _get_discussion_leaf_info(classroom_id: str, leaf_id: int, university_id: int) -> Optional[Dict]:
     """
     获取讨论题 leaf 的详细信息，包括题目内容（context）。
     """
@@ -678,7 +680,7 @@ def run_discussion_comment_session():
             )
 
         # 根据配置和题目决定最终评论内容
-        comment_text: str | None
+        comment_text: Optional[str]
         use_llm = False
         if default_comment.strip().lower() == "none":
             # 使用 LLM 自动生成，并将课程名称加入提示词
