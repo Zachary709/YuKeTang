@@ -495,10 +495,10 @@ def run_exercise_solver_session():
             log_info("已选择返回上一级。"); break
 
     # 退出选择循环后，展示会话内累计的所有答案（如有）
-    if all_answers:
-        print("\n================= 本次会话累计答案汇总（仅供参考） =================\n")
-        for item in all_answers:
-            print(f"[{item['chapter']} - {item['exercise']}] 第{item['index'] + 1}题（{item['type']}）：")
-            print(f"题目：{item['body']}")
-            print(f"答案：{item['answer']}\n")
-        print("================= 复制以上内容填写 =================\n")
+    # if all_answers:
+    #     print("\n================= 本次会话累计答案汇总（仅供参考） =================\n")
+    #     for item in all_answers:
+    #         print(f"[{item['chapter']} - {item['exercise']}] 第{item['index'] + 1}题（{item['type']}）：")
+    #         print(f"题目：{item['body']}")
+    #         print(f"答案：{item['answer']}\n")
+    #     print("================= 复制以上内容填写 =================\n")
