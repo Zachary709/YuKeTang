@@ -26,6 +26,14 @@ from src.utils.font_decode_utils import (
     strip_html_tags,
     load_or_build_font_map,
 )
+from src.utils.answer_parser import (
+    load_course_answers,
+    has_local_answers,
+    get_answer_for_question,
+    format_answer_for_submission,
+    verify_answer_match,
+    match_answers_to_options,
+)
 
 
 # ============== API 调用相关函数 ==============
@@ -202,6 +210,8 @@ def _submit_answer(
     提交单个题目的答案。
 
     API: /mooc-api/v1/lms/exercise/problem_apply/
+
+    注意：填空题使用 "answers" 字段（字典格式），其他题型使用 "answer" 字段（数组格式）。
     """
     url = "https://www.yuketang.cn/mooc-api/v1/lms/exercise/problem_apply/"
     csrf_token = _get_csrf_token()
@@ -218,37 +228,51 @@ def _submit_answer(
     if csrf_token:
         headers["x-csrftoken"] = csrf_token
 
-    # 根据题目类型构建答案格式
+    # 根据题目类型构建答案格式和 payload
     if problem_type == "FillBlank":
-        # 填空题答案格式：数组
+        # 填空题答案格式：字典，key 从 "1" 开始，如 {"1": "答案1", "2": "答案2"}
         if isinstance(answer, list):
-            answer_data = answer
+            answers_dict = {str(i + 1): ans for i, ans in enumerate(answer)}
         else:
-            answer_data = [answer]
+            answers_dict = {"1": answer}
+        payload = {
+            "classroom_id": int(classroom_id),
+            "problem_id": problem_id,
+            "answers": answers_dict,
+        }
     elif problem_type == "MultipleChoice":
         # 多选题答案格式：数组，如 ["A", "B", "C"]
         if isinstance(answer, str):
             answer_data = [a.strip() for a in answer.split(",")]
         else:
             answer_data = answer
+        payload = {
+            "classroom_id": int(classroom_id),
+            "problem_id": problem_id,
+            "answer": answer_data,
+        }
     elif problem_type == "TrueFalse" or problem_type == "Judge":
         # 判断题答案格式：数组，如 ["true"] 或 ["false"]
         if isinstance(answer, list):
             answer_data = answer
         else:
             answer_data = [answer]
+        payload = {
+            "classroom_id": int(classroom_id),
+            "problem_id": problem_id,
+            "answer": answer_data,
+        }
     else:
         # 单选题答案格式：数组，如 ["B"]
         if isinstance(answer, list):
             answer_data = answer
         else:
             answer_data = [answer]
-
-    payload = {
-        "classroom_id": int(classroom_id),
-        "problem_id": problem_id,
-        "answer": answer_data,
-    }
+        payload = {
+            "classroom_id": int(classroom_id),
+            "problem_id": problem_id,
+            "answer": answer_data,
+        }
 
     try:
         resp = session.post(url, headers=headers, data=json.dumps(payload), timeout=10)
@@ -311,6 +335,15 @@ def run_exercise_solver_session():
     font_map: dict[str, str] = {}
     all_answers = []  # 累计会话内所有答案
 
+    # 检查是否存在本地答案文件
+    local_answers = {}
+    if has_local_answers(course_name):
+        log_success(f"检测到本地答案文件：answer/{course_name}.txt，将优先使用本地答案。")
+        local_answers = load_course_answers(course_name)
+        # print(local_answers['第四章'])
+        # return
+    else:
+        log_info("未检测到本地答案文件，将使用 LLM 生成答案。")
 
     while True:
         # 重新输出测试列表，方便选择
@@ -376,6 +409,7 @@ def run_exercise_solver_session():
 
         # 开始处理选中的测试
         for ex_idx, exercise in enumerate(selected_exercises, start=1):
+            print(exercise)
             leaf_id = exercise["id"]
             exercise_name = exercise["name"]
             chapter_name = exercise["chapter_name"]
@@ -436,13 +470,60 @@ def run_exercise_solver_session():
                     log_info(f"  该题已提交过，跳过。")
                     continue
 
-                # 使用 LLM 解答
-                answer = solve_problem_with_llm(parsed_problem, course_name, exercise_name)
-                if not answer:
-                    log_warning(f"  LLM 未能给出答案，跳过此题。")
-                    continue
+                # 优先尝试从本地答案文件获取答案
+                answer = None
+                answer_source = "LLM"
 
-                log_info(f"  LLM 答案：{answer}")
+                # 对填空题和选择题使用本地答案
+                problem_type = parsed_problem["type"]
+                if local_answers and problem_type in ["FillBlank", "SingleChoice", "MultipleChoice"]:
+                    # 使用 prob_idx（从 1 开始的连续编号）作为题号匹配答案
+                    # 注意：get_answer_for_question 期望的是从 0 开始的索引，所以传入 prob_idx - 1
+                    
+                    answer_data = get_answer_for_question(
+                        parsed_answers=local_answers,
+                        chapter_name=chapter_name,
+                        question_index=prob_idx - 1,
+                        course_name=course_name,
+                    )
+                    if answer_data:
+                        # 验证题目文本是否匹配（防止因题目包含图片等导致答案错配）
+                        stored_text = answer_data.get("text", "")
+                        is_match, similarity = verify_answer_match(stored_text, parsed_problem["body"])
+
+                        if is_match:
+                            local_answer_list = answer_data.get("answers", [])
+                            
+                            if problem_type == "FillBlank":
+                                # 填空题：直接使用答案列表
+                                answer = format_answer_for_submission(local_answer_list)
+                            elif problem_type in ["SingleChoice", "MultipleChoice"]:
+                                # 选择题：将答案与选项进行相似度匹配
+                                is_multiple = (problem_type == "MultipleChoice")
+                                answer = match_answers_to_options(
+                                    local_answers=local_answer_list,
+                                    options=parsed_problem.get("options", []),
+                                    is_multiple_choice=is_multiple,
+                                )
+                                if not answer:
+                                    log_warning(f"  本地答案无法匹配到选项，跳过本地答案。")
+                                    answer = None
+                            
+                            if answer:
+                                answer_source = "本地答案文件"
+                                log_info(f"  从本地答案文件获取到答案（相似度{similarity:.2f}）：{answer}")
+                        else:
+                            log_warning(f"  本地答案文件第{prob_idx}题文本不匹配（相似度{similarity:.2f}），跳过本地答案。")
+
+                # 如果本地没有答案，使用 LLM 生成
+                if not answer:
+                    answer = solve_problem_with_llm(parsed_problem, course_name, exercise_name)
+                    if answer:
+                        log_info(f"  LLM 生成答案：{answer}")
+
+                if not answer:
+                    log_warning(f"  未能获取答案（本地和 LLM 均失败），跳过此题。")
+                    continue
 
                 # 汇总答案
                 entry = {
@@ -452,16 +533,34 @@ def run_exercise_solver_session():
                     "type": parsed_problem["type_text"],
                     "body": parsed_problem["body"],
                     "answer": answer,
+                    "source": answer_source,
                 }
                 batch_answers.append(entry)
                 all_answers.append(entry)
 
-                # 填空题不自动提交，仅供参考
-                if parsed_problem["type"] == "FillBlank":
-                    log_info("  [填空题仅供参考，请手动填写]")
+                # 如果是本地答案，直接提交（包括填空题）
+                if answer_source == "本地答案文件":
+                    log_info(f"  使用本地答案提交...")
+                    success = _submit_answer(
+                        classroom_id=classroom_id,
+                        university_id=university_id,
+                        problem_id=parsed_problem["problem_id"],
+                        answer=answer,
+                        problem_type=parsed_problem["type"],
+                    )
+                    delay = random.uniform(3, 5)
+                    log_info(f"  等待 {delay:.1f} 秒后继续下一题")
+                    time.sleep(delay)
+                    if not success:
+                        log_warning(f"  答案提交失败。")
                     continue
 
-                # 其他题型自动提交
+                # LLM 答案：填空题不自动提交，仅供参考
+                if parsed_problem["type"] == "FillBlank":
+                    log_info("  [LLM 填空题答案仅供参考，请手动填写]")
+                    continue
+
+                # LLM 答案：其他题型自动提交
                 success = _submit_answer(
                     classroom_id=classroom_id,
                     university_id=university_id,
@@ -482,7 +581,7 @@ def run_exercise_solver_session():
         if batch_answers:
             print("\n================= 本次答案汇总（仅供参考） =================\n")
             for item in batch_answers:
-                print(f"[{item['chapter']} - {item['exercise']}] 第{item['index'] + 1}题（{item['type']}）：")
+                print(f"[{item['chapter']} - {item['exercise']}] 第{item['index']}题（{item['type']}）：")
                 print(f"题目：{item['body']}")
                 print(f"答案：{item['answer']}\n")
             print("================= 复制以上内容填写 =================\n")
