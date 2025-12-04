@@ -1,0 +1,17 @@
+# YuKeTang 项目依赖
+# Python >= 3.8
+
+# HTTP 请求
+requests>=2.28.0
+
+# OpenAI 兼容 API 客户端
+openai>=1.0.0
+
+# 字体解析（用于解密混淆字体）
+fonttools>=4.0.0
+
+# 图像处理
+Pillow>=9.0.0
+
+# OCR 验证码识别（用于字体字符识别）
+ddddocr>=1.4.0

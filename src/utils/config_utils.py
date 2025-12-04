@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from src.utils.logging_utils import log_warning
 
 
-_CONFIG_CACHE: Dict[str, Any] | None = None
+_CONFIG_CACHE: Optional[Dict[str, Any]] = None
 
 
 def _parse_simple_yaml(path: Path) -> Dict[str, Any]:
@@ -62,9 +62,9 @@ def load_config() -> Dict[str, Any]:
         return _CONFIG_CACHE
 
 
-def get_config_value(key: str, default: Any | None = None) -> Any:
+def get_config_value(key: str, default: Optional[Any] = None) -> Any:
     """
-    获取指定配置项，不存在则返回 default。
+    获取指定配置项，不存在则返回 default.
     """
     cfg = load_config()
     return cfg.get(key, default)
@@ -82,9 +82,9 @@ def get_default_comment() -> str:
     )
 
 
-def get_dashscope_api_key() -> str | None:
+def get_dashscope_api_key() -> Optional[str]:
     """
-    获取用于调用 DashScope(OpenAI 兼容) 接口的 API Key。
+    获取用于调用 DashScope(OpenAI 兼容) 接口的 API Key.
     """
     key = str(get_config_value("DASHSCOPE_API_KEY", "") or "").strip()
     return key or None

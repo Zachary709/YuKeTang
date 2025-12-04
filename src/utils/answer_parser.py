@@ -7,7 +7,7 @@
 
 import os
 import re
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 
 def _calculate_text_similarity(text1: str, text2: str) -> float:
@@ -47,7 +47,7 @@ def _calculate_text_similarity(text1: str, text2: str) -> float:
     return intersection / union
 
 
-def parse_answer_file(file_path: str) -> dict[str, dict[int, dict]]:
+def parse_answer_file(file_path: str) -> Dict[str, Dict[int, dict]]:
     """
     解析答案文件，返回按章节和题号组织的答案字典。
 
@@ -78,7 +78,7 @@ def parse_answer_file(file_path: str) -> dict[str, dict[int, dict]]:
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    result: dict[str, dict[int, dict]] = {}
+    result: Dict[str, Dict[int, dict]] = {}
     current_chapter: str = ""
 
     # 正则匹配章节标题，如 "## 第一章-AI安全与伦理概述" 或 "## 第四章-后门攻击与防御"
@@ -129,7 +129,7 @@ def parse_answer_file(file_path: str) -> dict[str, dict[int, dict]]:
 
 
 def get_answer_for_question(
-    parsed_answers: dict[str, dict[int, dict]],
+    parsed_answers: Dict[str, Dict[int, dict]],
     chapter_name: str,
     question_index: int,
     course_name: str = "",
@@ -165,7 +165,7 @@ def verify_answer_match(
     stored_text: str,
     current_text: str,
     similarity_threshold: float = 0.7,
-) -> tuple[bool, float]:
+) -> Tuple[bool, float]:
     """
     验证本地答案文件中的题目文本与当前题目是否匹配。
 
@@ -186,7 +186,7 @@ def verify_answer_match(
     return (similarity >= similarity_threshold, similarity)
 
 
-def format_answer_for_submission(answers: list[str]) -> list[str]:
+def format_answer_for_submission(answers: List[str]) -> List[str]:
     """
     将解析出的答案格式化为可提交的格式（仅用于填空题）。
 
@@ -202,10 +202,10 @@ def format_answer_for_submission(answers: list[str]) -> list[str]:
 
 
 def match_answers_to_options(
-    local_answers: list[str],
-    options: list[dict],
+    local_answers: List[str],
+    options: List[dict],
     is_multiple_choice: bool = False,
-) -> list[str]:
+) -> List[str]:
     """
     将本地答案文本与选项进行匹配，返回匹配的选项字母。
 
@@ -253,7 +253,7 @@ def match_answers_to_options(
     return matched_keys
 
 
-def load_course_answers(course_name: str, answer_dir: Optional[str] = None) -> dict[str, dict[int, dict]]:
+def load_course_answers(course_name: str, answer_dir: Optional[str] = None) -> Dict[str, Dict[int, dict]]:
     """
     加载指定课程的答案文件。
 

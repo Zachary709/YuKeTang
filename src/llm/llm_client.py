@@ -1,4 +1,5 @@
 import re
+from typing import List, Optional, Union
 
 from openai import OpenAI
 
@@ -18,7 +19,7 @@ def _strip_html_tags(html: str) -> str:
     return text.strip()
 
 
-def _extract_tag_content(text: str, tag: str = "topic_text") -> str | None:
+def _extract_tag_content(text: str, tag: str = "topic_text") -> Optional[str]:
     """
     从文本中提取指定标签包裹的内容，例如 <topic_text>xxx</topic_text>。
     """
@@ -29,7 +30,7 @@ def _extract_tag_content(text: str, tag: str = "topic_text") -> str | None:
     return m.group(1).strip()
 
 
-def _get_openai_client() -> OpenAI | None:
+def _get_openai_client() -> Optional[OpenAI]:
     api_key = get_dashscope_api_key()
     if not api_key or api_key == "YOUR_API_KEY_HERE":
         log_error("未在 config.yml 中配置 DASHSCOPE_API_KEY，无法通过 LLM 生成评论。")
@@ -46,7 +47,7 @@ def _get_openai_client() -> OpenAI | None:
         return None
 
 
-def generate_comment_by_llm(question_html: str, course_name: str | None = None) -> str | None:
+def generate_comment_by_llm(question_html: str, course_name: Optional[str] = None) -> Optional[str]:
     """
     使用 LLM 根据讨论题目自动生成一小段评论内容。
 
@@ -115,7 +116,7 @@ def generate_comment_by_llm(question_html: str, course_name: str | None = None) 
 
 # ============== 测试题答题相关函数 ==============
 
-def _format_problem_for_llm(problem: dict, course_name: str | None = None, exercise_name: str | None = None) -> str:
+def _format_problem_for_llm(problem: dict, course_name: Optional[str] = None, exercise_name: Optional[str] = None) -> str:
     """
     将题目格式化为 LLM 提示词格式。
     """
@@ -144,7 +145,7 @@ def _format_problem_for_llm(problem: dict, course_name: str | None = None, exerc
     return "\n".join(lines)
 
 
-def _extract_answer_from_response(response_text: str, problem_type: str) -> str | list[str] | None:
+def _extract_answer_from_response(response_text: str, problem_type: str) -> Union[str, List[str], None]:
     """
     从 LLM 响应中提取答案。
 
@@ -172,7 +173,7 @@ def _extract_answer_from_response(response_text: str, problem_type: str) -> str 
         return answer.strip()
 
 
-def solve_problem_with_llm(problem: dict, course_name: str | None = None, exercise_name: str | None = None) -> str | list[str] | None:
+def solve_problem_with_llm(problem: dict, course_name: Optional[str] = None, exercise_name: Optional[str] = None) -> Union[str, List[str], None]:
     """
     使用 LLM 解答单个题目。
     """

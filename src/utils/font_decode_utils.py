@@ -5,10 +5,11 @@ import re
 from io import BytesIO
 import os
 import json
+from typing import Dict, List, Optional
 from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw, ImageFont
 
-def decode_encrypted_spans(html_text: str, char_map: dict | None = None) -> str:
+def decode_encrypted_spans(html_text: str, char_map: Optional[Dict[str, str]] = None) -> str:
     """
     解码类似：
     <span class="xuetangx-com-encrypted-font">\u793e\u95f4</span>\u6d51...
@@ -34,7 +35,7 @@ def strip_html_tags(html: str) -> str:
     text = re.sub(r"<.*?>", "", html)
     return text.strip()
 
-def font_to_img_ddddocr(code_list: list[str], filename: str) -> dict[str, str]:
+def font_to_img_ddddocr(code_list: List[str], filename: str) -> Dict[str, str]:
     """
     使用 ddddocr 识别字体中的字符映射。
     """
@@ -67,7 +68,7 @@ def font_to_img_ddddocr(code_list: list[str], filename: str) -> dict[str, str]:
             normal_dict[real_char] = res
     return normal_dict
 
-def ttf_parse(url: str, ttf_name: str) -> dict[str, str]:
+def ttf_parse(url: str, ttf_name: str) -> Dict[str, str]:
     """
     根据 URL 获取字体文件并解析字符映射。
     """
@@ -83,7 +84,7 @@ def ttf_parse(url: str, ttf_name: str) -> dict[str, str]:
         os.remove(ttf_name)
     return normal_dict
 
-def load_or_build_font_map(url: str) -> dict[str, str]:
+def load_or_build_font_map(url: str) -> Dict[str, str]:
     """
     读取/构建字体映射关系：
     - 缓存文件名基于 font URL 生成，确保不同字体使用不同缓存

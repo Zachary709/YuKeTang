@@ -10,7 +10,7 @@ import re
 import time
 import random
 from io import BytesIO
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 from src.network.http_client import SEPARATOR, session
 from src.utils.logging_utils import log_error, log_info, log_success, log_warning
@@ -70,7 +70,7 @@ def _get_course_chapter(classroom_id: str, university_id: int) -> dict:
         return {}
 
 
-def _extract_exercise_leaf_ids(chapter_data: dict) -> list[dict]:
+def _extract_exercise_leaf_ids(chapter_data: dict) -> List[dict]:
     """
     从章节数据中提取所有测试题的信息（leaf_type=6）。
 
@@ -106,7 +106,7 @@ def _extract_exercise_leaf_ids(chapter_data: dict) -> list[dict]:
     return exercise_leaves
 
 
-def _get_leaf_info(classroom_id: str, leaf_id: int, university_id: int) -> dict | None:
+def _get_leaf_info(classroom_id: str, leaf_id: int, university_id: int) -> Optional[dict]:
     """
     获取测试题的 leaf_info，从中提取 leaf_type_id。
 
@@ -130,7 +130,7 @@ def _get_leaf_info(classroom_id: str, leaf_id: int, university_id: int) -> dict 
         return None
 
 
-def _get_exercise_list(leaf_type_id: int, classroom_id: str, university_id: int) -> dict | None:
+def _get_exercise_list(leaf_type_id: int, classroom_id: str, university_id: int) -> Optional[dict]:
     """
     获取测试题列表。
 
@@ -156,7 +156,7 @@ def _get_exercise_list(leaf_type_id: int, classroom_id: str, university_id: int)
 
 # ============== 题目解析相关函数 ==============
 
-def _parse_problem(problem: dict, font_map: dict[str, str]) -> dict:
+def _parse_problem(problem: dict, font_map: Dict[str, str]) -> dict:
     """
     解析单个题目，返回标准化格式。
     """
@@ -203,7 +203,7 @@ def _submit_answer(
     classroom_id: str,
     university_id: int,
     problem_id: int,
-    answer: str | list[str],
+    answer: Union[str, List[str]],
     problem_type: str,
 ) -> bool:
     """
@@ -332,7 +332,7 @@ def run_exercise_solver_session():
     log_info(SEPARATOR)
 
     # 让用户选择要刷的测试题，选择后立即检测分数并处理，处理完返回选择页
-    font_map: dict[str, str] = {}
+    font_map: Dict[str, str] = {}
     all_answers = []  # 累计会话内所有答案
 
     # 检查是否存在本地答案文件
