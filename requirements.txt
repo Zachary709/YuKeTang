@@ -6,4 +6,4 @@ openai>=1.0.0
 fonttools>=4.0.0
 Pillow>=9.0.0
 ddddocr>=1.4.0
-websockets>=10.0
+websockets==13.0
