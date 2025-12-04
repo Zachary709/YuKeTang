@@ -33,7 +33,8 @@ def _show_qr_window(image_path: str):
         photo = ImageTk.PhotoImage(img)
 
         label = tk.Label(root, image=photo)
-        label.image = photo  # 防止被垃圾回收
+        # 防止被垃圾回收
+        label.image = photo # type: ignore
         label.pack(padx=10, pady=10)
 
         _qr_window = root
@@ -101,7 +102,7 @@ async def run_websocket_login():
         while True:
             response = await websocket.recv()
 
-            if 'ticket' in response:
+            if 'ticket' in response: # type: ignore
                 response_json = json.loads(response)
                 url = response_json['ticket']
 
@@ -116,7 +117,7 @@ async def run_websocket_login():
                 else:
                     log_error(f"二维码获取失败，状态码：{img_response.status_code}")
 
-            if 'subscribe_status' in response:
+            if 'subscribe_status' in response: # type: ignore
                 json_data = json.loads(response)
                 auth = json_data['Auth']
                 user_id = json_data['UserID']
