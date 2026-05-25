@@ -11,6 +11,9 @@ from src.utils.config_utils import (
 from src.utils.logging_utils import log_error, log_warning, log_info
 
 
+JUDGEMENT_TYPES = {"TrueFalse", "Judge", "Judgement"}
+
+
 def _strip_html_tags(html: str) -> str:
     """简单移除 HTML 标签，只保留文本内容。"""
     html = re.sub(r"</p\s*>", "\n", html, flags=re.IGNORECASE)
@@ -200,12 +203,25 @@ def solve_problem_with_llm(problem: dict, course_name: Optional[str] = None, exe
             "<answer>A,B,C</answer>\n"
             "不要输出任何多余的解释或说明。"
         )
-    elif problem_type == "TrueFalse" or problem_type == "Judge":
+    elif problem_type in JUDGEMENT_TYPES:
+        option_keys = [
+            str(opt.get("key", "")).strip()
+            for opt in problem.get("options", [])
+            if str(opt.get("key", "")).strip()
+        ]
+        option_key_hint = (
+            f"本题可用选项 key：{', '.join(option_keys)}。\n"
+            if option_keys
+            else ""
+        )
         system_prompt = (
             "你是一个答题助手。请判断题目描述是否正确。\n"
+            f"{option_key_hint}"
+            "你必须输出当前题目选项中的 key，不要输出“正确/错误”等选项文字。\n"
             "你必须严格按照以下格式输出答案：\n"
-            "如果正确：<answer>true</answer>\n"
-            "如果错误：<answer>false</answer>\n"
+            "<answer>选项key</answer>\n"
+            "例如选项 key 是 true/false 时，输出 <answer>true</answer> 或 <answer>false</answer>；"
+            "如果选项 key 是 A/B，则输出 <answer>A</answer> 或 <answer>B</answer>。\n"
             "不要输出任何多余的解释或说明。"
         )
     elif problem_type == "FillBlank":

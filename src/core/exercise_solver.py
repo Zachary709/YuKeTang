@@ -36,6 +36,10 @@ from src.utils.answer_parser import (
 )
 
 
+JUDGEMENT_TYPES = {"TrueFalse", "Judge", "Judgement"}
+CHOICE_TYPES = {"SingleChoice", "MultipleChoice", *JUDGEMENT_TYPES}
+
+
 # ============== API 调用相关函数 ==============
 
 def _get_course_chapter(classroom_id: str, university_id: int) -> dict:
@@ -197,6 +201,113 @@ def _parse_problem(problem: dict, font_map: Dict[str, str]) -> dict:
     }
 
 
+def _normalize_compare_text(value: Any) -> str:
+    """归一化用于选项匹配的短文本。"""
+    text = str(value or "").strip().lower()
+    return re.sub(r"[\s，,。；;：:、（）()\[\]【】<>《》\"'“”‘’\.。!！?？]", "", text)
+
+
+def _split_answer_tokens(answer: Union[str, List[str]]) -> List[str]:
+    """把模型或本地答案拆成候选选项 token。"""
+    if isinstance(answer, list):
+        raw_tokens = answer
+    else:
+        raw_tokens = re.split(r"[,\，;；|/、\s]+", str(answer or ""))
+    return [str(token).strip() for token in raw_tokens if str(token).strip()]
+
+
+def _infer_judgement_value(token: str) -> Optional[bool]:
+    """把“正确/错误”等自然语言答案映射为布尔判断。"""
+    normalized = _normalize_compare_text(token)
+    true_values = {"true", "t", "yes", "y", "1", "正确", "对", "是", "right", "correct"}
+    false_values = {"false", "f", "no", "n", "0", "错误", "错", "否", "不正确", "不对", "wrong", "incorrect"}
+    if normalized in true_values:
+        return True
+    if normalized in false_values:
+        return False
+    return None
+
+
+def _find_option_key_for_token(token: str, options: List[dict], problem_type: str) -> Optional[str]:
+    """将一个答案 token 映射到当前题目的真实选项 key。"""
+    normalized_token = _normalize_compare_text(token)
+    if not normalized_token:
+        return None
+
+    for opt in options:
+        key = str(opt.get("key", "")).strip()
+        if key and normalized_token == _normalize_compare_text(key):
+            return key
+
+    for opt in options:
+        key = str(opt.get("key", "")).strip()
+        value = str(opt.get("value", "")).strip()
+        if key and value and normalized_token == _normalize_compare_text(value):
+            return key
+
+    if problem_type in JUDGEMENT_TYPES:
+        judgement_value = _infer_judgement_value(token)
+        if judgement_value is None:
+            return None
+
+        desired_values = (
+            {"true", "t", "yes", "y", "1", "正确", "对", "是", "right", "correct"}
+            if judgement_value
+            else {"false", "f", "no", "n", "0", "错误", "错", "否", "不正确", "不对", "wrong", "incorrect"}
+        )
+        for opt in options:
+            key = str(opt.get("key", "")).strip()
+            value = str(opt.get("value", "")).strip()
+            if not key:
+                continue
+            if _normalize_compare_text(key) in desired_values or _normalize_compare_text(value) in desired_values:
+                return key
+
+    return None
+
+
+def _normalize_answer_for_submission(
+    answer: Union[str, List[str]],
+    problem_type: str,
+    options: List[dict],
+) -> Union[str, List[str], None]:
+    """提交前把选择/判断题答案统一成后台认可的选项 key。"""
+    if problem_type == "FillBlank":
+        return answer
+
+    if problem_type not in CHOICE_TYPES:
+        return answer
+
+    if not options:
+        log_warning("  当前题目没有选项数据，无法校验答案，跳过提交。")
+        return None
+
+    tokens = _split_answer_tokens(answer)
+    if problem_type == "MultipleChoice" and len(tokens) == 1:
+        valid_keys = {_normalize_compare_text(opt.get("key")) for opt in options if opt.get("key")}
+        compact_token = _normalize_compare_text(tokens[0])
+        if len(compact_token) > 1 and all(char in valid_keys for char in compact_token):
+            tokens = list(compact_token)
+
+    if not tokens:
+        return None
+
+    normalized_keys: List[str] = []
+    for token in tokens:
+        key = _find_option_key_for_token(token, options, problem_type)
+        if not key:
+            log_warning(f"  答案 {token!r} 无法匹配当前题目的任何选项，跳过提交。")
+            return None
+        if key not in normalized_keys:
+            normalized_keys.append(key)
+
+    if problem_type != "MultipleChoice" and len(normalized_keys) != 1:
+        log_warning(f"  单选/判断题答案数量异常：{normalized_keys}，跳过提交。")
+        return None
+
+    return normalized_keys
+
+
 # ============== 提交答案相关函数 ==============
 
 def _submit_answer(
@@ -251,8 +362,8 @@ def _submit_answer(
             "problem_id": problem_id,
             "answer": answer_data,
         }
-    elif problem_type == "TrueFalse" or problem_type == "Judge":
-        # 判断题答案格式：数组，如 ["true"] 或 ["false"]
+    elif problem_type in JUDGEMENT_TYPES:
+        # 判断题答案格式：数组，内容必须是当前题目 Options 中的真实 key
         if isinstance(answer, list):
             answer_data = answer
         else:
@@ -273,6 +384,12 @@ def _submit_answer(
             "problem_id": problem_id,
             "answer": answer_data,
         }
+
+    if problem_type != "FillBlank":
+        payload["answer"] = [str(item).strip() for item in payload.get("answer", []) if str(item).strip()]
+        if not payload["answer"]:
+            log_warning(f"答案为空，取消提交：problem_id={problem_id}")
+            return False
 
     try:
         resp = session.post(url, headers=headers, data=json.dumps(payload), timeout=10)
@@ -476,7 +593,10 @@ def run_exercise_solver_session():
 
                 # 对填空题和选择题使用本地答案
                 problem_type = parsed_problem["type"]
-                if local_answers and problem_type in ["FillBlank", "SingleChoice", "MultipleChoice"]:
+                if local_answers and (
+                    problem_type in ["FillBlank", "SingleChoice", "MultipleChoice"]
+                    or problem_type in JUDGEMENT_TYPES
+                ):
                     # 使用 prob_idx（从 1 开始的连续编号）作为题号匹配答案
                     # 注意：get_answer_for_question 期望的是从 0 开始的索引，所以传入 prob_idx - 1
                     
@@ -497,7 +617,7 @@ def run_exercise_solver_session():
                             if problem_type == "FillBlank":
                                 # 填空题：直接使用答案列表
                                 answer = format_answer_for_submission(local_answer_list)
-                            elif problem_type in ["SingleChoice", "MultipleChoice"]:
+                            elif problem_type in ["SingleChoice", "MultipleChoice"] or problem_type in JUDGEMENT_TYPES:
                                 # 选择题：将答案与选项进行相似度匹配
                                 is_multiple = (problem_type == "MultipleChoice")
                                 answer = match_answers_to_options(
@@ -524,6 +644,19 @@ def run_exercise_solver_session():
                 if not answer:
                     log_warning(f"  未能获取答案（本地和 LLM 均失败），跳过此题。")
                     continue
+
+                if parsed_problem["type"] != "FillBlank":
+                    normalized_answer = _normalize_answer_for_submission(
+                        answer=answer,
+                        problem_type=parsed_problem["type"],
+                        options=parsed_problem.get("options", []),
+                    )
+                    if not normalized_answer:
+                        log_warning("  答案无法转换为后台选项 key，已取消提交此题。")
+                        continue
+                    if normalized_answer != answer:
+                        log_info(f"  答案已转换为后台选项 key：{normalized_answer}")
+                    answer = normalized_answer
 
                 # 汇总答案
                 entry = {
