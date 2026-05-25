@@ -63,7 +63,7 @@ pip install -r requirements
 default_comment: "None"
 DASHSCOPE_API_KEY: "YOUR_API_KEY_HERE"
 LLM_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-LLM_MODEL: "qwen3-max"
+LLM_MODEL: "qwen3.6-max"
 ```
 
 - `default_comment`：
@@ -71,9 +71,9 @@ LLM_MODEL: "qwen3-max"
   - 如果设置为 `"None"`（不区分大小写），则对每个讨论题调用 LLM 自动生成评论内容。
 - `DASHSCOPE_API_KEY`：用于访问阿里云百炼（DashScope）或其他 OpenAI 兼容服务的 API Key。
 - `LLM_BASE_URL`：OpenAI 兼容接口的Base地址，默认为阿里云百炼的兼容地址，若切换到官方 OpenAI 或其他厂商，请按需修改。
-- `LLM_MODEL`：用于生成评论的模型名称，如 `qwen3-max`，可根据你的实际服务调整。
+- `LLM_MODEL`：用于生成评论的模型名称，如 `qwen3.6-max`，可根据你的实际服务调整。
 
-API KEY需要自己申请一下，建议使用阿里云百炼，这样模型和URL都可以直接用这里默认的。（截止2025年12月，qwen3-max还是有免费额度的，不用考虑付费的事）
+API KEY需要自己申请一下，建议使用阿里云百炼，这样模型和URL都可以直接用这里默认的。（截至2026年5月，qwen3.6-max还是有免费额度的，不用考虑付费的事）
 
 ## 声明
 本项目仅供学习研究，请勿用于任何违反校规或法律的用途。
